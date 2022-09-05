@@ -21,6 +21,7 @@ import { PublicKey, Transaction } from '@solana/web3.js'
 import { Pair } from './pair'
 import { getMarketAddress, Network, MOCK_TOKENS } from './network'
 import { findTickmapChanges } from './tickmap'
+import { Invariant, IDL } from './idl/invariant'
 
 export {
   Market,
@@ -43,7 +44,9 @@ export {
   MOCK_TOKENS,
   FEE_TIER,
   TICK_SEARCH_RANGE,
-  computeUnitsInstruction
+  computeUnitsInstruction,
+  Invariant,
+  IDL
 }
 export interface IWallet {
   signTransaction: (tx: Transaction) => Promise<Transaction>
