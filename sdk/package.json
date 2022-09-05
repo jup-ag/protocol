@@ -1,6 +1,6 @@
 {
   "name": "@jup-ag/invariant",
-  "version": "0.9.32",
+  "version": "0.9.33",
   "description": "",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
