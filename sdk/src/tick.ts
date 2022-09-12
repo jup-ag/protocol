@@ -1,4 +1,4 @@
-import { assert } from 'chai'
+import invariant from 'invariant'
 import { TICK_LIMIT } from '.'
 import { Decimal } from './market'
 import { calculatePriceSqrt, TICK_SEARCH_RANGE } from './math'
@@ -9,7 +9,7 @@ export const getTickFromPrice = (
   price: Decimal,
   xToY: boolean
 ): number => {
-  assert.isTrue(currentTick % tickSpacing === 0)
+  invariant(currentTick % tickSpacing === 0, 'tick not on tick spacing')
 
   if (xToY) {
     return priceToTickInRange(
@@ -34,7 +34,7 @@ export const priceToTickInRange = (
   high: number,
   step: number
 ): number => {
-  assert.ok(step !== 0)
+  invariant(step !== 0, 'step must be non-zero')
 
   low = Math.floor(low / step)
   high = Math.floor(high / step)

@@ -1,5 +1,5 @@
 import { BN } from '@project-serum/anchor'
-import { assert } from 'chai'
+import invariant from 'invariant'
 import { Decimal, Tick, Tickmap } from './market'
 import {
   DECIMAL,
@@ -264,8 +264,8 @@ const getNextPriceFromInput = (
   amount: BN,
   aToB: boolean
 ): Decimal => {
-  assert.isTrue(price.v.gt(new BN(0)))
-  assert.isTrue(liquidity.v.gt(new BN(0)))
+  invariant(price.v.gt(new BN(0)), 'prive should be gt 0')
+  invariant(liquidity.v.gt(new BN(0)), 'liquidity should be gt 0')
 
   if (aToB) {
     return getNextPriceXUp(price, liquidity, amount, true)
@@ -280,8 +280,8 @@ const getNextPriceFromOutput = (
   amount: BN,
   aToB: boolean
 ): Decimal => {
-  assert.isTrue(price.v.gt(new BN(0)))
-  assert.isTrue(liquidity.v.gt(new BN(0)))
+  invariant(price.v.gt(new BN(0)), 'prive should be gt 0')
+  invariant(liquidity.v.gt(new BN(0)), 'liquidity should be gt 0')
 
   if (aToB) {
     return getNextPriceYDown(price, liquidity, amount, false)
