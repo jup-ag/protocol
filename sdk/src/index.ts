@@ -1,4 +1,12 @@
-import { FEE_TIER, Market } from './market'
+import {
+  FEE_TIER,
+  Market,
+  PoolData,
+  PoolStructure,
+  Tickmap,
+  Tick,
+  TICK_CROSSES_PER_IX
+} from './market'
 import {
   SEED,
   DENOMINATOR,
@@ -7,7 +15,10 @@ import {
   INVARIANT_ERRORS,
   computeUnitsInstruction,
   PRICE_DENOMINATOR,
-  LIQUIDITY_DENOMINATOR
+  LIQUIDITY_DENOMINATOR,
+  simulateSwap,
+  toDecimal,
+  SimulateSwapInterface
 } from './utils'
 import {
   TICK_LIMIT,
@@ -15,7 +26,8 @@ import {
   fromInteger,
   MAX_TICK,
   MIN_TICK,
-  TICK_SEARCH_RANGE
+  TICK_SEARCH_RANGE,
+  findClosestTicks
 } from './math'
 import { PublicKey, Transaction } from '@solana/web3.js'
 import { Pair } from './pair'
@@ -24,6 +36,15 @@ import { findTickmapChanges } from './tickmap'
 import { Invariant, IDL } from './idl/invariant'
 
 export {
+  SimulateSwapInterface,
+  toDecimal,
+  simulateSwap,
+  findClosestTicks,
+  TICK_CROSSES_PER_IX,
+  Tick,
+  PoolData,
+  PoolStructure,
+  Tickmap,
   Market,
   Pair,
   Network,
