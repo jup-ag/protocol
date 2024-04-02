@@ -1,6 +1,6 @@
 {
-  "name": "@jup-ag/invariant",
-  "version": "0.9.35",
+  "name": "@invariant-labs/sdk",
+  "version": "0.9.66",
   "description": "",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -16,8 +16,8 @@
   "license": "",
   "devDependencies": {
     "@solana/spl-token": "0.1.8",
-    "@solana/web3.js": "1.18.0",
-    "@types/invariant": "^2.2.35",
+    "@solana/web3.js": "1.87.6",
+    "@types/chai": "^4.2.15",
     "@types/mocha": "^8.2.1",
     "ts-mocha": "^8.0.0",
     "tsup": "^6.2.3",

@@ -8,8 +8,8 @@ on:
     branches:
       - master
 env:
-  solana_version: 1.9.14
-  anchor_version: 0.21.0
+  solana_version: '1.14.9'
+  anchor_version: '0.21.0'
 
 jobs:
   install:
@@ -19,6 +19,7 @@ jobs:
         case:
           [
             'npm run test:swap',
+            'npm run test:multiple-swap',
             'npm run test:cross',
             'npm run test:cross-both-side',
             'npm run test:liquidity-gap',
@@ -55,6 +56,7 @@ jobs:
             'npm run test:max-tick-cross',
             'npm run test:close-stake',
             'cargo test',
+            'npm run test:referral-default',
             'npm run test:referral-all',
             'npm run test:referral-none',
             'npm run test:referral-jupiter',
@@ -102,7 +104,7 @@ jobs:
           key: npm-${{ runner.os }}-v0000-${{ hashFiles('**/package-lock.json') }}
       - uses: actions/setup-node@v2
         with:
-          node-version: '14'
+          node-version: '18'
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -123,13 +125,14 @@ jobs:
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/v${{ env.solana_version }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           solana --version
       - name: setup solana
         run: |
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           solana --version
-          solana-keygen new
+          solana-keygen new -o "$HOME/.config/solana/id.json" --no-passphrase --silent
       - name: install Anchor
         if: steps.cache-anchor.outputs.cache-hit != 'true'
         run: |

@@ -1,5 +1,6 @@
 import { AnchorProvider, BN, utils } from '@project-serum/anchor'
 import {
+  ComputeBudgetProgram,
   ConfirmOptions,
   Connection,
   Keypair,
@@ -18,17 +19,21 @@ import {
   Tick,
   PoolData,
   Errors,
-  PositionInitData
+  PositionInitData,
+  Position
 } from './market'
 import {
   calculateMinReceivedTokensByAmountIn,
   calculatePriceAfterSlippage,
   calculatePriceImpact,
   calculateSwapStep,
+  getDeltaX,
+  getDeltaY,
   getLiquidityByX,
   getLiquidityByY,
   getXfromLiquidity,
   isEnoughAmountToPushPrice,
+  MIN_TICK,
   sqrt
 } from './math'
 import { alignTickToSpacing, getTickFromPrice } from './tick'
@@ -110,7 +115,7 @@ export interface SimulateSwapInterface {
   xToY: boolean
   byAmountIn: boolean
   swapAmount: BN
-  priceLimit: Decimal
+  priceLimit?: Decimal
   slippage: Decimal
   ticks: Map<number, Tick>
   tickmap: Tickmap
@@ -185,20 +190,13 @@ export interface CloserLimitResult {
   limitingTick: TickState | null
 }
 
-export const computeUnitsInstruction = (units: number, wallet: PublicKey) => {
-  const program = new PublicKey('ComputeBudget111111111111111111111111111111')
-  const params = { instruction: 0, units: units, additional_fee: 0 }
-  const layout = struct([u8('instruction') as any, u32('units'), u32('additional_fee')])
-  const data = Buffer.alloc(layout.span)
-  layout.encode(params, data)
-  const keys = [{ pubkey: wallet, isSigner: false, isWritable: false }]
-  const unitsIx = new TransactionInstruction({
-    keys,
-    programId: program,
-    data
-  })
-  return unitsIx
+export const computeUnitsInstruction = (
+  units: number,
+  wallet: PublicKey
+): TransactionInstruction => {
+  return ComputeBudgetProgram.setComputeUnitLimit({ units })
 }
+
 export async function assertThrowsAsync(fn: Promise<any>, word?: string) {
   try {
     await fn
@@ -245,6 +243,25 @@ export const sleep = async (ms: number) => {
   return await new Promise(resolve => setTimeout(resolve, ms))
 }
 
+export const arithmeticalAvg = <T extends BN>(...args: T[]): T => {
+  if (args.length === 0) {
+    throw new Error('requires at least one argument')
+  }
+
+  const sum = args.reduce((acc, val) => acc.add(val), new BN(0))
+  return sum.divn(args.length) as T
+}
+
+export const weightedArithmeticAvg = <T extends BN>(...args: { val: T; weight: BN }[]): T => {
+  if (args.length === 0) {
+    throw new Error('requires at least one argument')
+  }
+  const sumOfWeights = args.reduce((acc, { weight }) => acc.add(weight), new BN(0))
+  const sum = args.reduce((acc, { val, weight }) => acc.add(val.mul(weight)), new BN(0))
+
+  return sum.div(sumOfWeights) as T
+}
+
 export const tou64 = (amount: BN) => {
   // @ts-ignore
   return new u64(amount.toString())
@@ -267,12 +284,22 @@ export const feeToTickSpacing = (fee: BN): number => {
 }
 
 export const FEE_TIERS: FeeTier[] = [
-  { fee: fromFee(new BN(1)) },
-  { fee: fromFee(new BN(10)) },
+  { fee: fromFee(new BN(1)), tickSpacing: 1 },
+  { fee: fromFee(new BN(3)), tickSpacing: 1 },
+  { fee: fromFee(new BN(5)), tickSpacing: 1 },
+  { fee: fromFee(new BN(10)), tickSpacing: 1 },
+  { fee: fromFee(new BN(20)), tickSpacing: 5 },
   { fee: fromFee(new BN(50)) },
   { fee: fromFee(new BN(100)) },
+  { fee: fromFee(new BN(200)), tickSpacing: 5 },
   { fee: fromFee(new BN(300)) },
-  { fee: fromFee(new BN(1000)) }
+  { fee: fromFee(new BN(500)), tickSpacing: 5 },
+  { fee: fromFee(new BN(1000)) },
+  { fee: fromFee(new BN(3000)), tickSpacing: 5 },
+  { fee: fromFee(new BN(5000)), tickSpacing: 5 },
+  { fee: fromFee(new BN(10000)), tickSpacing: 5 },
+  { fee: fromFee(new BN(25000)), tickSpacing: 5 },
+  { fee: fromFee(new BN(50000)), tickSpacing: 5 }
 ]
 
 export const generateTicksArray = (start: number, stop: number, step: number) => {
@@ -498,13 +525,23 @@ export const swapSimulation = async (
 }
 
 export const simulateSwap = (swapParameters: SimulateSwapInterface): SimulationResult => {
-  const { xToY, byAmountIn, swapAmount, slippage, ticks, tickmap, priceLimit, pool } =
-    swapParameters
+  const {
+    xToY,
+    byAmountIn,
+    swapAmount,
+    slippage,
+    ticks,
+    tickmap,
+    priceLimit: optionalPriceLimit,
+    pool
+  } = swapParameters
   let { currentTickIndex, tickSpacing, liquidity, sqrtPrice, fee } = pool
   const startingSqrtPrice = sqrtPrice.v
   let previousTickIndex = MAX_TICK + 1
   const amountPerTick: BN[] = []
   const crossedTicks: number[] = []
+  const priceLimit =
+    optionalPriceLimit ?? xToY ? calculatePriceSqrt(MIN_TICK) : calculatePriceSqrt(MAX_TICK)
   let accumulatedAmount: BN = new BN(0)
   let accumulatedAmountOut: BN = new BN(0)
   let accumulatedAmountIn: BN = new BN(0)
@@ -1008,8 +1045,8 @@ export const calculateTokensRange = (
   const tokensPrevious = getTokensInRange(tickArrayPrevious, tickLower, tickUpper)
   const tokensCurrent = getTokensInRange(tickArrayCurrent, tickLower, tickUpper)
 
-  // geometric mean of tokensPrevious and tokensCurrent
-  const tokens = sqrt(tokensPrevious.mul(tokensCurrent))
+  // arithmetic mean of tokensPrevious and tokensCurrent
+  const tokens = arithmeticalAvg(tokensPrevious, tokensCurrent)
 
   return {
     tokens,
@@ -1097,18 +1134,22 @@ export const poolAPY = (params: ApyPoolParams): WeeklyData => {
   let dailyTokens: BN = new BN(0)
   let dailyVolumeX: number = 0
   try {
-    const { tickLower, tickUpper } = calculateTokensRange(
-      ticksPreviousSnapshot,
-      ticksCurrentSnapshot,
-      currentTickIndex
-    )
+    const {
+      tickLower,
+      tickUpper,
+      tokens: avgTokensFromRange
+    } = calculateTokensRange(ticksPreviousSnapshot, ticksCurrentSnapshot, currentTickIndex)
 
     const previousSqrtPrice = calculatePriceSqrt(tickLower)
     const currentSqrtPrice = calculatePriceSqrt(tickUpper)
     const volume = getVolume(volumeX, volumeY, previousSqrtPrice, currentSqrtPrice)
-    dailyFactor = dailyFactorPool(activeTokens, volume, feeTier)
+    const tokenAvgFactor = weightedArithmeticAvg(
+      { val: activeTokens, weight: new BN(1) },
+      { val: avgTokensFromRange, weight: new BN(4) }
+    )
+    dailyFactor = dailyFactorPool(tokenAvgFactor, volume, feeTier)
     dailyRange = { tickLower, tickUpper }
-    dailyTokens = activeTokens
+    dailyTokens = tokenAvgFactor
     dailyVolumeX = volumeX
   } catch (e: any) {
     dailyFactor = 0
@@ -1330,6 +1371,60 @@ export const getPositionIndex = async (
   }
 
   return index
+}
+
+export const simulateWithdrawal = (position: Position, pool: PoolStructure) => {
+  if (pool.currentTickIndex < position.lowerTickIndex) {
+    return [
+      getDeltaX(
+        calculatePriceSqrt(position.lowerTickIndex),
+        calculatePriceSqrt(position.upperTickIndex),
+        position.liquidity,
+        false
+      ) ?? new BN(0),
+      new BN(0)
+    ]
+  } else if (pool.currentTickIndex < position.upperTickIndex) {
+    return [
+      getDeltaX(
+        pool.sqrtPrice,
+        calculatePriceSqrt(position.upperTickIndex),
+        position.liquidity,
+        false
+      ) ?? new BN(0),
+      getDeltaY(
+        calculatePriceSqrt(position.lowerTickIndex),
+        pool.sqrtPrice,
+        position.liquidity,
+        false
+      ) ?? new BN(0)
+    ]
+  } else {
+    return [
+      new BN(0),
+      getDeltaY(
+        calculatePriceSqrt(position.lowerTickIndex),
+        calculatePriceSqrt(position.upperTickIndex),
+        position.liquidity,
+        false
+      ) ?? new BN(0)
+    ]
+  }
+}
+
+export const calculatePoolLiquidity = (
+  pool: PoolStructure,
+  positions: Position[]
+): { x: BN; y: BN } => {
+  return positions.reduce(
+    (acc, position) => {
+      const result = simulateWithdrawal(position, pool)
+
+      const { x, y } = acc
+      return { x: x.add(result[0]), y: y.add(result[1]) }
+    },
+    { x: new BN(0), y: new BN(0) }
+  )
 }
 
 export interface TokenData {

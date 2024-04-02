@@ -1,4 +1,4 @@
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { BN } from '@project-serum/anchor'
 import {
   calculatePriceSqrt,
@@ -59,7 +59,9 @@ import {
   ApyPositionRewardsParams,
   positionsRewardAPY,
   UserDailyRewardsParams,
-  calculateUserDailyRewards
+  calculateUserDailyRewards,
+  arithmeticalAvg,
+  weightedArithmeticAvg
 } from '@invariant-labs/sdk/src/utils'
 import {
   createTickArray,
@@ -82,9 +84,85 @@ import {
   WeeklyData
 } from '@invariant-labs/sdk/lib/utils'
 import { priceToTickInRange } from '@invariant-labs/sdk/src/tick'
-import { U64_MAX } from '@invariant-labs/sdk/lib/math'
+import { getLiquidity, U64_MAX } from '@invariant-labs/sdk/lib/math'
 
 describe('Math', () => {
+  describe('arithmeticalAvg', () => {
+    it('throws an error when called with 0 arguments', () => {
+      expect(() => arithmeticalAvg()).to.throw()
+    })
+    it('returns the correct average for 1 numbers', () => {
+      const sampleValue = new BN(32)
+      const result = arithmeticalAvg(sampleValue)
+      assert.ok(result.eq(sampleValue))
+    })
+    it('returns the correct average for 2 numbers', () => {
+      const result = arithmeticalAvg(new BN(10), new BN(12))
+      assert.ok(result.eq(new BN(11)))
+    })
+    it('returns the correct average for 3 numbers', () => {
+      const result = arithmeticalAvg(new BN(10), new BN(50), new BN(12))
+      assert.ok(result.eq(new BN(24)))
+    })
+    it('returns the correct average for 5 numbers', () => {
+      const result = arithmeticalAvg(
+        new BN(10),
+        new BN(50),
+        new BN(12),
+        new BN(10024),
+        new BN(11479)
+      )
+      assert.ok(result.eq(new BN(4315)))
+    })
+  })
+  describe('weightedArithmeticAvg', () => {
+    it('throws an error when called with 0 arguments', () => {
+      expect(() => weightedArithmeticAvg()).to.throw()
+    })
+
+    it('returns the correct average for 1 value', () => {
+      const sampleValue = new BN(32)
+      const sampleWeight = new BN(15458215158)
+      const result = weightedArithmeticAvg({ val: sampleValue, weight: sampleWeight })
+      assert.ok(result.eq(sampleValue))
+    })
+
+    it('returns the correct average for 2 values with equal weights', () => {
+      const result = weightedArithmeticAvg(
+        { val: new BN(10), weight: new BN(12654) },
+        { val: new BN(12), weight: new BN(12654) }
+      )
+      assert.ok(result.eq(new BN(11)))
+    })
+
+    it('returns the correct average for 2 values with different weights', () => {
+      const result = weightedArithmeticAvg(
+        { val: new BN(10), weight: new BN(3) },
+        { val: new BN(12), weight: new BN(1) }
+      )
+      assert.ok(result.eq(new BN(10))) // average of 10.67 rounded down
+    })
+
+    it('returns the correct average for 3 values with different weights', () => {
+      const result = weightedArithmeticAvg(
+        { val: new BN(10), weight: new BN(2) },
+        { val: new BN(50), weight: new BN(3) },
+        { val: new BN(12), weight: new BN(1) }
+      )
+      assert.ok(result.eq(new BN(30))) // average of 30.(33) rounded down
+    })
+
+    it('returns the correct average for 5 values with different weights', () => {
+      const result = weightedArithmeticAvg(
+        { val: new BN(10), weight: new BN(1) },
+        { val: new BN(50), weight: new BN(2) },
+        { val: new BN(12), weight: new BN(3) },
+        { val: new BN(10024), weight: new BN(4) },
+        { val: new BN(11479), weight: new BN(5) }
+      )
+      assert.ok(result.eq(new BN(6509))) // average of 6509.1(3) rounded down
+    })
+  })
   describe('Test sqrt price calculation', () => {
     it('Test 20000', () => {
       const price = 20000
@@ -259,6 +337,101 @@ describe('Math', () => {
       } catch (e) {
         assert.ok(true)
       }
+    })
+  })
+  describe('calculate liquidity (without specifying on which token)', () => {
+    const tokenDecimal = 9
+    const y = new BN(476 * 10 ** (tokenDecimal - 1)) // 47.6
+    const currentTick = -20000
+    const currentSqrtPrice = calculatePriceSqrt(currentTick)
+
+    it('below current tick', async () => {
+      const lowerTick = -22000
+      const upperTick = -21000
+
+      const expectedX = new BN(0)
+      const expectedL = { v: new BN('2789052279103923275') }
+      const { liquidity: roundUpLiquidity, x: expectedRoundUpX } = getLiquidity(
+        expectedX,
+        y,
+        lowerTick,
+        upperTick,
+        currentSqrtPrice,
+        true
+      )
+      const { liquidity: roundDownLiquidity, x: expectedRoundDownX } = getLiquidity(
+        expectedX,
+        y,
+        lowerTick,
+        upperTick,
+        currentSqrtPrice,
+        true
+      )
+
+      assert.ok(expectedL.v.eq(roundUpLiquidity.v))
+      assert.ok(expectedL.v.eq(roundDownLiquidity.v))
+      assert.ok(expectedRoundUpX.eq(new BN(0)))
+      assert.ok(expectedRoundDownX.eq(new BN(0)))
+    })
+    //
+    it('in current tick', async () => {
+      // rust results:
+      const expectedRoundUpL = { v: new BN('584945290554346935') }
+      const expectedRoundDownL = { v: new BN('584945290552000000') }
+
+      const expectedXRoundUp = new BN('77539808126')
+      const expectedXRoundDown = new BN('77539808125')
+
+      const lowerTick = -25000
+      const upperTick = -19000
+
+      const { liquidity: roundUpLiquidity, x: roundUpX } = getLiquidity(
+        expectedXRoundUp,
+        y,
+        lowerTick,
+        upperTick,
+        currentSqrtPrice,
+        true
+      )
+      const { liquidity: roundDownLiquidity, x: roundDownX } = getLiquidity(
+        expectedXRoundDown,
+        y,
+        lowerTick,
+        upperTick,
+        currentSqrtPrice,
+        false
+      )
+      assert.ok(expectedRoundUpL.v.eq(roundUpLiquidity.v))
+      assert.ok(expectedRoundDownL.v.eq(roundDownLiquidity.v))
+      assert.ok(expectedXRoundUp.eq(roundUpX))
+      assert.ok(expectedXRoundDown.eq(roundDownX))
+    })
+    it('above current tick', async () => {
+      const lowerTick = 150
+      const upperTick = 800
+      const x = new BN(43 * 10 ** (tokenDecimal - 2)) // 0.43
+      const sqrtPrice = calculatePriceSqrt(100)
+      const expectedY = new BN(0)
+      const expectedL = { v: new BN('13548826311623850') }
+
+      const {
+        liquidity: roundingUpLiquidity,
+        x: expectedRoundingUpX,
+        y: expectedRoundingUpY
+      } = getLiquidity(x, expectedY, lowerTick, upperTick, sqrtPrice, true)
+
+      const {
+        liquidity: roundingDownLiquidity,
+        x: expectedRoundingDownX,
+        y: expectedRoundingDownY
+      } = getLiquidity(x, expectedY, lowerTick, upperTick, sqrtPrice, false)
+
+      assert.ok(roundingUpLiquidity.v.eq(expectedL.v))
+      assert.ok(roundingDownLiquidity.v.eq(expectedL.v))
+      assert.ok(expectedRoundingUpX.eq(x))
+      assert.ok(expectedRoundingDownX.eq(x))
+      assert.ok(expectedRoundingUpY.eq(expectedY))
+      assert.ok(expectedRoundingDownY.eq(expectedY))
     })
   })
   describe('calculate slippage', () => {
@@ -1885,7 +2058,7 @@ describe('Math', () => {
     it('case 1', async () => {
       const volume = 125000
       const tokenXamount = new BN(1000000)
-      const feeTier = FEE_TIERS[4] // 0.3%
+      const feeTier = FEE_TIERS[7] // 0.3%
 
       const result = dailyFactorPool(tokenXamount, volume, feeTier)
       assert.equal(result, 0.00037125)

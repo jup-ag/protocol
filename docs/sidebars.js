@@ -46,17 +46,51 @@ module.exports = {
     },
     {
       type: 'category',
-      label: 'Technical side',
+      label: 'Solana',
       collapsed: true,
       items: [
-        'technical_side/introduction',
-        'technical_side/quick_start',
-        'technical_side/pool',
-        'technical_side/minting_position',
-        'technical_side/position_list',
-        'technical_side/swap',
-        'technical_side/withdraw',
-        'technical_side/invariant_errors'
+        'solana/introduction',
+        'solana/quick_start',
+        'solana/pool',
+        'solana/minting_position',
+        'solana/position_list',
+        'solana/swap',
+        'solana/withdraw',
+        'solana/invariant_errors'
+      ]
+    },
+    {
+      type: 'category',
+      label: 'Aleph Zero',
+      collapsed: true,
+      items: [
+        'aleph_zero/installation',
+        'aleph_zero/overview',
+        'aleph_zero/sdk',
+        'aleph_zero/types',
+        'aleph_zero/storage',
+        'aleph_zero/collections',
+        'aleph_zero/entrypoints',
+        'aleph_zero/handling_azero',
+        'aleph_zero/invariant_errors',
+        'aleph_zero/deployment'
+      ]
+    },
+    {
+      type: 'category',
+      label: 'Casper Network',
+      collapsed: true,
+      items: [
+        'casper/installation',
+        'casper/overview',
+        'casper/sdk',
+        'casper/types',
+        'casper/storage',
+        'casper/collections',
+        'casper/entrypoints',
+        'casper/handling_cspr',
+        'casper/invariant_errors',
+        'casper/deployment'
       ]
     },
     'faq',

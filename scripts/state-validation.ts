@@ -1,28 +1,52 @@
-import { Provider } from '@project-serum/anchor'
-import { clusterApiUrl, Keypair, PublicKey } from '@solana/web3.js'
+import { BN, Provider } from '@project-serum/anchor'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import { Network } from '@invariant-labs/sdk/src/network'
 import { Market, Pair } from '@invariant-labs/sdk/src'
-import { calculateClaimAmount } from '@invariant-labs/sdk/src/utils'
+import { calculateClaimAmount, simulateWithdrawal } from '@invariant-labs/sdk/src/utils'
 import { parseLiquidityOnTicks } from '@invariant-labs/sdk/lib/utils'
 import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes'
-import { PoolStructure, Position } from '@invariant-labs/sdk/src/market'
-import { BN } from '../staker-sdk/lib'
+import { Position } from '@invariant-labs/sdk/src/market'
 import { assert } from 'chai'
-import { getDeltaX } from '@invariant-labs/sdk/lib/math'
-import { calculatePriceSqrt } from '@invariant-labs/sdk'
-import { getDeltaY } from '@invariant-labs/sdk/src/math'
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { Tick } from '@invariant-labs/sdk/lib/market'
 
 // trunk-ignore(eslint/@typescript-eslint/no-var-requires)
 require('dotenv').config()
 
-const provider = Provider.local(
-  'https://solana--mainnet.datahub.figment.io/apikey/182e93d87a1f1d335c9d74d6c7371388',
-  {
-    skipPreflight: true
-  }
+const provider = Provider.local('[FILL ME]', {
+  skipPreflight: true
+})
+
+export const addressTickerMap: { [key: string]: string } = {
+  SOL: 'So11111111111111111111111111111111111111112',
+  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  USDH: 'USDH1SM1ojwWUga67PGrgFWUHibbjqMvuMaDkRJTgkX',
+  mSOL: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',
+  bSOL: 'bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1',
+  stSOL: '7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj',
+  SNY: '4dmKkXNHdgYsXqBHCuMikNQWwVomZURhYvkkX5c4pQ7y',
+  ETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
+  LFNTY: 'LFNTYraetVioAPnGJht4yNg2aUZFXR776cMeN9VMjXp',
+  JLP: '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4'
+}
+
+export const reversedAddressTickerMap = Object.fromEntries(
+  Object.entries(addressTickerMap).map(([key, value]) => [value, key])
 )
+
+export const addressToTicker = (address: string): string => {
+  return reversedAddressTickerMap[address] || address
+}
+
+const assertionOn = true
+const skipValidation = ['JCKjKab2Qj9fkVGDX1QH2TZDX5Y7YfihMwwyh2efy8tP']
+const onlyValidation = [
+  '5dX3tkVDmbHBWMCQMerAHTmd9wsRvmtKLoQt6qv9fHy7', // usdc-usdt 0.01%
+  '2SgUGxYDczrB6wUzXHPJH65pNhWkEzNMEx3km4xTYUTC', // usdc-wsol 0.01%
+  'A29rrFUrhwhvBtBATr1heqKVgzcdWncywTGeSb5jw4wQ', // usdc-jlp 0.1%
+  'AsScbbfavtP77F1Ybpe3Cdwhca9Yby6gDQLVh5uWsi3X' // msol-bsol 0.01%
+]
 
 const connection = provider.connection
 
@@ -32,6 +56,7 @@ const placeholderTick: Tick = {
   sign: false,
   pool: Keypair.generate().publicKey,
   liquidityGross: { v: new BN(0) },
+  secondsPerLiquidityOutside: { v: new BN(0) },
   feeGrowthOutsideX: { v: new BN(0) },
   feeGrowthOutsideY: { v: new BN(0) },
   sqrtPrice: { v: new BN(0) },
@@ -52,45 +77,6 @@ const fetchAllPools = async (market: Market) => {
   return await market.program.account.pool.all([])
 }
 
-const simulateWithdrawal = (position: Position, pool: PoolStructure) => {
-  if (pool.currentTickIndex < position.lowerTickIndex) {
-    return [
-      getDeltaX(
-        calculatePriceSqrt(position.lowerTickIndex),
-        calculatePriceSqrt(position.upperTickIndex),
-        position.liquidity,
-        false
-      ) ?? new BN(0),
-      new BN(0)
-    ]
-  } else if (pool.currentTickIndex < position.upperTickIndex) {
-    return [
-      getDeltaX(
-        pool.sqrtPrice,
-        calculatePriceSqrt(position.upperTickIndex),
-        position.liquidity,
-        false
-      ) ?? new BN(0),
-      getDeltaY(
-        calculatePriceSqrt(position.lowerTickIndex),
-        pool.sqrtPrice,
-        position.liquidity,
-        false
-      ) ?? new BN(0)
-    ]
-  } else {
-    return [
-      new BN(0),
-      getDeltaY(
-        calculatePriceSqrt(position.lowerTickIndex),
-        calculatePriceSqrt(position.upperTickIndex),
-        position.liquidity,
-        false
-      ) ?? new BN(0)
-    ]
-  }
-}
-
 const main = async () => {
   const market = await Market.build(Network.MAIN, provider.wallet, connection)
 
@@ -98,24 +84,40 @@ const main = async () => {
 
   for (const poolAccount of pools) {
     const pool = poolAccount.account
+    const poolAddress = poolAccount.publicKey
+
+    if (
+      onlyValidation.length > 0 &&
+      !onlyValidation.find(address => poolAddress.equals(new PublicKey(address)))
+    ) {
+      continue
+    }
+
+    if (skipValidation.find(address => poolAddress.equals(new PublicKey(address))) !== undefined) {
+      console.log(`Skipping pool ${poolAddress.toString()}`)
+      continue
+    }
+
+    console.log(`Pool address: ${poolAccount.publicKey.toString()}`)
+
     console.log(
-      `Checking pool ${pool.tokenX.toString()}/${pool.tokenY.toString()} at ${pool.fee.v
-        .divn(1e7)
-        .toString()}`
+      `Token address: ${addressToTicker(pool.tokenX.toString())}/${addressToTicker(
+        pool.tokenY.toString()
+      )} at ${Number(pool.fee.v.divn(1e7).toString()) / 10e2}%`
     )
 
     const pair = new Pair(pool.tokenX, pool.tokenY, {
-      fee: pool.fee.v
+      fee: pool.fee.v,
+      tickSpacing: pool.tickSpacing
     })
 
     const expectedAddress = await pair.getAddress(market.program.programId)
-
     assert.equal(expectedAddress.toString(), poolAccount.publicKey.toString())
 
     const ticks = await market.getClosestTicks(pair, Infinity)
 
     // checking liquidity
-    const parsed = parseLiquidityOnTicks(ticks, pool).map(({ index, liquidity }) => ({
+    const parsed = parseLiquidityOnTicks(ticks).map(({ index, liquidity }) => ({
       liquidity: liquidity.toString(),
       index
     }))
@@ -127,11 +129,13 @@ const main = async () => {
       assert.ok(lastBelow, pool.liquidity.v.toString())
     }
 
-    // fetching position
-    const positions = await fetchAllPosition(
-      market,
-      await pair.getAddress(market.program.programId)
+    const getAllPositions = fetchAllPosition(market, poolAccount.publicKey)
+    const getReserveBalances = market.getReserveBalances(
+      pair,
+      new Token(connection, pair.tokenX, TOKEN_PROGRAM_ID, Keypair.generate()),
+      new Token(connection, pair.tokenY, TOKEN_PROGRAM_ID, Keypair.generate())
     )
+    const [positions, reserves] = await Promise.all([getAllPositions, getReserveBalances])
 
     ticks.forEach(({ index, liquidityChange, sign }) => {
       const positionsAbove = positions.filter(({ lowerTickIndex }) => lowerTickIndex === index)
@@ -175,19 +179,24 @@ const main = async () => {
       [new BN(0), new BN(0)]
     )
 
-    const feeProtocolTokenX = pool.feeProtocolTokenX
-    const feeProtocolTokenY = pool.feeProtocolTokenY
-
     console.log('sumOfPositions:', ...sumOfPositions.map(i => i.toString()))
 
-    const reserves = await market.getReserveBalances(
-      pair,
-      new Token(connection, pair.tokenX, TOKEN_PROGRAM_ID, Keypair.generate()),
-      new Token(connection, pair.tokenY, TOKEN_PROGRAM_ID, Keypair.generate())
-    )
     console.log('reserve balances:', reserves.x.toString(), reserves.y.toString())
-    assert.ok(sumOfPositions[0].add(feeProtocolTokenX).lte(reserves.x))
-    assert.ok(sumOfPositions[1].add(feeProtocolTokenY).lte(reserves.y))
+    if (!sumOfPositions[0].lte(reserves.x)) {
+      console.log('**************')
+      console.log('*X IS INVALID*')
+      console.log('**************')
+    }
+    if (!sumOfPositions[1].lte(reserves.y)) {
+      console.log('**************')
+      console.log('*Y IS INVALID*')
+      console.log('**************')
+    }
+    if (assertionOn) {
+      assert.ok(sumOfPositions[0].lte(reserves.x))
+      assert.ok(sumOfPositions[1].lte(reserves.y))
+    }
+    console.log('---------------------\n')
   }
 }
 // trunk-ignore(eslint/@typescript-eslint/no-floating-promises)

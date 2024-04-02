@@ -22,7 +22,12 @@ module.exports = {
       logo: {
         alt: 'Invariant Logo',
         src: 'img/logo.png'
-      }
+      },
+      items: [
+        { to: '/docs/solana/introduction', label: 'Solana', position: 'left' },
+        { to: '/docs/aleph_zero/installation', label: 'Aleph Zero', position: 'left' },
+        { to: '/docs/casper/installation', label: 'Casper Network', position: 'left' }
+      ]
     },
     footer: {
       style: 'dark',
@@ -85,5 +90,41 @@ module.exports = {
       integrity: 'sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM',
       crossorigin: 'anonymous'
     }
+  ],
+  plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        fromExtensions: ['html'],
+        toExtensions: ['html'],
+        redirects: [
+          {
+            from: '/docs/aleph_zero/',
+            to: '/docs/aleph_zero/installation'
+          },
+          {
+            from: '/docs/solana/',
+            to: '/docs/solana/introduction'
+          },
+          {
+            from: '/docs/casper/',
+            to: '/docs/casper/installation'
+          }
+        ],
+        createRedirects(existingPath) {
+          if (existingPath === '/docs/aleph_zero/') {
+            return '/docs/aleph_zero/installation'
+          }
+          if (existingPath === '/docs/solana/') {
+            return '/docs/solana/introduction'
+          }
+          if (existingPath === '/docs/casper/') {
+            return '/docs/casper/installation'
+          }
+          // Path does not require a redirect.
+          return undefined
+        }
+      }
+    ]
   ]
 }

@@ -1,6 +1,7 @@
 import { BN, Program, utils, AnchorProvider } from '@project-serum/anchor'
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import {
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   PublicKey,
@@ -81,6 +82,19 @@ export class Market {
     instance.programAuthority = (await instance.getProgramAuthority()).programAuthority
 
     return instance
+  }
+
+  async setWallet(wallet: IWallet) {
+    this.wallet = wallet
+  }
+
+  async addPriorityFee(priorityRate: number, tx: Transaction): Promise<Transaction> {
+    const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: priorityRate
+    })
+    tx.instructions.unshift(priorityFeeIx)
+
+    return tx
   }
 
   async createPool(createPool: CreatePool) {
@@ -247,6 +261,14 @@ export class Market {
       await Promise.all(indexes.map(index => this.getTickAddress(pair, index)))
     ).map(a => a.tickAddress)
     return (await this.program.account.tick.fetchMultiple(ticksArray)) as Tick[]
+  }
+
+  async getAllIndexedTicks(pair: Pair): Promise<Map<number, Tick>> {
+    return new Map(
+      (await this.getAllTicks(pair)).map(tick => {
+        return [tick.index, tick]
+      })
+    )
   }
 
   async getAllTicks(pair: Pair) {
