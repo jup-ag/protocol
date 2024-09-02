@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use crate::size;
 use anchor_lang::prelude::*;
 
-#[account(zero_copy)]
 #[repr(packed)]
 #[derive(AnchorDeserialize)]
 pub struct Tickmap {
