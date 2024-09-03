@@ -4,7 +4,7 @@ use crate::size;
 use anchor_lang::prelude::*;
 
 #[repr(packed)]
-#[derive(AnchorDeserialize)]
+#[derive(AnchorDeserialize, Clone, Copy)]
 pub struct Tickmap {
     pub bitmap: [u8; 11091], // Tick limit / 4
 }

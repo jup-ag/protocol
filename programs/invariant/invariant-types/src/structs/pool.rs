@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::{decimals::*, size};
 
 #[repr(packed)]
-#[derive(PartialEq, Default, Debug, AnchorDeserialize)]
+#[derive(PartialEq, Default, Debug, AnchorDeserialize, Clone, Copy)]
 pub struct Pool {
     pub token_x: Pubkey,
     pub token_y: Pubkey,

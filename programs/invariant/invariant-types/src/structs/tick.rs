@@ -2,7 +2,7 @@ use crate::{decimals::*, size};
 use anchor_lang::prelude::*;
 
 #[repr(packed)]
-#[derive(PartialEq, Default, Debug, AnchorDeserialize)]
+#[derive(PartialEq, Default, Debug, AnchorDeserialize, Clone, Copy)]
 pub struct Tick {
     pub pool: Pubkey,
     pub index: i32,
