@@ -22,10 +22,29 @@ module.exports = {
       label: 'Tutorial',
       collapsed: true,
       items: [
+        'tutorial/interface',
+        'tutorial/priority_fees',
+        'tutorial/rpc',
+        'tutorial/networks',
         'tutorial/how_to_connect_your_wallet',
         'tutorial/how_to_swap',
-        'tutorial/how_to_add_remove_liquidity',
-        'tutorial/uniform_concentration'
+        {
+          type: 'category',
+          label: 'How to add liquidity',
+          link: {
+            type: 'doc',
+            id: 'tutorial/how_to_add_liquidity'
+          },
+          items: [
+            'tutorial/how_to_add_liquidity/uniform_concentration',
+            'tutorial/how_to_add_liquidity/price_range'
+          ]
+        },
+        'tutorial/how_to_claim_fee',
+        'tutorial/how_to_remove_liquidity',
+        'tutorial/stats',
+        'tutorial/troubleshooting',
+        'tutorial/faq_tutorial'
       ]
     },
     {
@@ -61,9 +80,87 @@ module.exports = {
     },
     {
       type: 'category',
+      label: 'Eclipse',
+      collapsed: true,
+      items: [
+        {
+          type: 'category',
+          label: 'User Guide',
+          link: {
+            type: 'doc',
+            id: 'eclipse/user_guide'
+          },
+          items: [
+            'eclipse/user_guide/interface',
+            'eclipse/user_guide/networks',
+            'eclipse/user_guide/how_to_connect_your_wallet',
+            'eclipse/user_guide/faucet',
+            'eclipse/user_guide/how_to_swap',
+            {
+              type: 'category',
+              label: 'How to add liquidity',
+              link: {
+                type: 'doc',
+                id: 'eclipse/user_guide/how_to_add_liquidity'
+              },
+              items: [
+                'eclipse/user_guide/how_to_add_liquidity/uniform_concentration',
+                'eclipse/user_guide/how_to_add_liquidity/price_range'
+              ]
+            },
+            'eclipse/user_guide/how_to_claim_fee',
+            'eclipse/user_guide/how_to_remove_liquidity',
+            'eclipse/user_guide/stats',
+            'eclipse/user_guide/troubleshooting',
+            'eclipse/user_guide/faq_tutorial'
+          ]
+        },
+        'eclipse/get_started',
+        'eclipse/introduction',
+        'eclipse/quick_start',
+        'eclipse/pool',
+        'eclipse/minting_position',
+        'eclipse/position_list',
+        'eclipse/swap',
+        'eclipse/withdraw',
+        'eclipse/invariant_errors'
+      ]
+    },
+    {
+      type: 'category',
       label: 'Aleph Zero',
       collapsed: true,
       items: [
+        {
+          type: 'category',
+          label: 'User Guide',
+          items: [
+            'aleph_zero/user_guide/interface',
+            'aleph_zero/user_guide/networks',
+            'aleph_zero/user_guide/how_to_connect_your_wallet',
+            'aleph_zero/user_guide/faucet',
+            'aleph_zero/user_guide/how_to_swap',
+            {
+              type: 'category',
+              label: 'How to add liquidity',
+              link: {
+                type: 'doc',
+                id: 'aleph_zero/user_guide/how_to_add_liquidity'
+              },
+              items: [
+                'aleph_zero/user_guide/how_to_add_liquidity/uniform_concentration',
+                'aleph_zero/user_guide/how_to_add_liquidity/price_range'
+              ]
+            },
+            'aleph_zero/user_guide/how_to_claim_fee',
+            'aleph_zero/user_guide/how_to_remove_liquidity',
+            // 'aleph_zero/user_guide/stats',
+            'aleph_zero/user_guide/how_to_list_your_token',
+            'aleph_zero/user_guide/troubleshooting',
+            'aleph_zero/user_guide/faq_tutorial'
+          ]
+        },
+        'aleph_zero/get_started',
         'aleph_zero/installation',
         'aleph_zero/overview',
         'aleph_zero/sdk',
@@ -76,21 +173,53 @@ module.exports = {
         'aleph_zero/deployment'
       ]
     },
+    // {
+    //   type: 'category',
+    //   label: 'Casper Network',
+    //   collapsed: true,
+    //   items: [
+    //     'casper/installation',
+    //     'casper/overview',
+    //     'casper/sdk',
+    //     'casper/types',
+    //     'casper/storage',
+    //     'casper/collections',
+    //     'casper/entrypoints',
+    //     'casper/handling_cspr',
+    //     'casper/invariant_errors',
+    //     'casper/deployment'
+    //   ]
+    // },
     {
       type: 'category',
-      label: 'Casper Network',
+      label: 'VARA',
       collapsed: true,
       items: [
-        'casper/installation',
-        'casper/overview',
-        'casper/sdk',
-        'casper/types',
-        'casper/storage',
-        'casper/collections',
-        'casper/entrypoints',
-        'casper/handling_cspr',
-        'casper/invariant_errors',
-        'casper/deployment'
+        'vara/installation',
+        'vara/overview',
+        'vara/sdk',
+        'vara/types',
+        'vara/storage',
+        'vara/collections',
+        'vara/entrypoints',
+        'vara/invariant_errors'
+      ]
+    },
+    {
+      type: 'category',
+      label: 'Alephium',
+      collapsed: true,
+      items: [
+        'alephium/installation',
+        'alephium/overview',
+        'alephium/sdk',
+        'alephium/types',
+        'alephium/storage',
+        'alephium/collections',
+        'alephium/entrypoints',
+        'alephium/handling_alph',
+        'alephium/invariant_errors'
+        // 'alephium/deployment'
       ]
     },
     'faq',

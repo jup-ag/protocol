@@ -25,8 +25,11 @@ module.exports = {
       },
       items: [
         { to: '/docs/solana/introduction', label: 'Solana', position: 'left' },
+        { to: '/docs/eclipse/introduction', label: 'Eclipse', position: 'left' },
         { to: '/docs/aleph_zero/installation', label: 'Aleph Zero', position: 'left' },
-        { to: '/docs/casper/installation', label: 'Casper Network', position: 'left' }
+        // { to: '/docs/casper/installation', label: 'Casper Network', position: 'left' },
+        { to: '/docs/vara/installation', label: 'VARA', position: 'left' },
+        { to: '/docs/alephium/installation', label: 'Alephium', position: 'left' }
       ]
     },
     footer: {
@@ -103,23 +106,44 @@ module.exports = {
             to: '/docs/aleph_zero/installation'
           },
           {
+            from: '/docs/alephium/',
+            to: '/docs/alephium/installation'
+          },
+          {
             from: '/docs/solana/',
             to: '/docs/solana/introduction'
           },
           {
-            from: '/docs/casper/',
-            to: '/docs/casper/installation'
+            from: '/docs/eclipse/',
+            to: '/docs/eclipse/introduction'
+          },
+          // {
+          //   from: '/docs/casper/',
+          //   to: '/docs/casper/installation'
+          // },
+          {
+            from: '/docs/vara/',
+            to: '/docs/vara/installation'
           }
         ],
         createRedirects(existingPath) {
           if (existingPath === '/docs/aleph_zero/') {
             return '/docs/aleph_zero/installation'
           }
+          if (existingPath === '/docs/alephium/') {
+            return '/docs/alephium/installation'
+          }
           if (existingPath === '/docs/solana/') {
             return '/docs/solana/introduction'
           }
-          if (existingPath === '/docs/casper/') {
-            return '/docs/casper/installation'
+          // if (existingPath === '/docs/casper/') {
+          //   return '/docs/casper/installation'
+          // }
+          if (existingPath === '/docs/eclipse/') {
+            return '/docs/eclipse/introduction'
+          }
+          if (existingPath === '/docs/vara/') {
+            return '/docs/vara/installation'
           }
           // Path does not require a redirect.
           return undefined
