@@ -64,4 +64,8 @@ pub enum InvariantErrorCode {
     InvalidListOwner = 29, // 178d
     #[msg("Invalid tick spacing")]
     InvalidTickSpacing = 30, // 178e
+    #[msg("Tick is over bounds")]
+    TickOverBounds = 31,
+    #[msg("Math error")]
+    MathError = 32,
 }

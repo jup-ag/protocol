@@ -19,10 +19,13 @@ pub struct SwapResult {
 }
 
 // converts ticks to price with reduced precision
-pub fn calculate_price_sqrt(tick_index: i32) -> Price {
+pub fn calculate_price_sqrt(tick_index: i32) -> Result<Price> {
     // checking if tick be converted to price (overflows if more)
     let tick = tick_index.abs();
-    assert!(tick <= MAX_TICK, "tick over bounds");
+
+    if tick > MAX_TICK {
+        return anchor_lang::err!(InvariantErrorCode::TickOverBounds);
+    }
 
     let mut price = FixedPoint::from_integer(1);
 
@@ -83,9 +86,11 @@ pub fn calculate_price_sqrt(tick_index: i32) -> Price {
 
     // Parsing to the Price type by the end by convention (should always have 12 zeros at the end)
     if tick_index >= 0 {
-        Price::from_decimal(price)
+        Ok(Price::from_decimal(price))
     } else {
-        Price::from_decimal(FixedPoint::from_integer(1).big_div(price))
+        Ok(Price::from_decimal(
+            FixedPoint::from_integer(1).big_div(price),
+        ))
     }
 }
 
@@ -107,7 +112,7 @@ pub fn get_closer_limit(
 
     match closes_tick_index {
         Some(index) => {
-            let price = calculate_price_sqrt(index);
+            let price = calculate_price_sqrt(index)?;
             // trunk-ignore(clippy/if_same_then_else)
             if x_to_y && price > sqrt_price_limit {
                 Ok((price, Some((index, true))))
@@ -118,8 +123,9 @@ pub fn get_closer_limit(
             }
         }
         None => {
-            let index = get_search_limit(current_tick, tick_spacing, !x_to_y);
-            let price = calculate_price_sqrt(index);
+            let index = get_search_limit(current_tick, tick_spacing, !x_to_y)
+                .ok_or(InvariantErrorCode::WrongLimit)?;
+            let price = calculate_price_sqrt(index)?;
 
             require!(current_tick != index, InvariantErrorCode::LimitReached);
 
@@ -299,15 +305,12 @@ pub fn get_delta_y(
     match match up {
         true => delta_price
             .big_mul_to_value_up(liquidity)
-            .checked_add(Price::almost_one())
-            .unwrap()
-            .checked_div(Price::one())
-            .unwrap()
+            .checked_add(Price::almost_one())?
+            .checked_div(Price::one())?
             .try_into(),
         false => delta_price
             .big_mul_to_value(liquidity)
-            .checked_div(Price::one())
-            .unwrap()
+            .checked_div(Price::one())?
             .try_into(),
     } {
         Ok(x) => Some(TokenAmount(x)),
@@ -542,12 +545,12 @@ pub fn get_min_tick(tick_spacing: u16) -> TrackableResult<i32> {
 
 pub fn get_max_sqrt_price(tick_spacing: u16) -> TrackableResult<Price> {
     let max_tick = get_max_tick(tick_spacing);
-    Ok(calculate_price_sqrt(max_tick?))
+    Ok(calculate_price_sqrt(max_tick?).map_err(|err| err!(&err.to_string()))?)
 }
 
 pub fn get_min_sqrt_price(tick_spacing: u16) -> TrackableResult<Price> {
     let min_tick = get_min_tick(tick_spacing);
-    Ok(calculate_price_sqrt(min_tick?))
+    Ok(calculate_price_sqrt(min_tick?).map_err(|err| err!(&err.to_string()))?)
 }
 
 #[cfg(test)]
@@ -858,7 +861,7 @@ mod tests {
         }
         // by_amount_out and x_to_y edge cases
         {
-            let target_price_sqrt = calculate_price_sqrt(-10);
+            let target_price_sqrt = calculate_price_sqrt(-10).unwrap();
             let current_price_sqrt = target_price_sqrt + Price::from_integer(1);
             let liquidity = Liquidity::from_integer(340282366920938463463374607u128);
             let one_token = TokenAmount(1);
@@ -929,8 +932,8 @@ mod tests {
         // VALIDATE DOMAIN
         let one_price_sqrt = Price::from_integer(1);
         let two_price_sqrt = Price::from_integer(2);
-        let max_price_sqrt = calculate_price_sqrt(MAX_TICK);
-        let min_price_sqrt = calculate_price_sqrt(-MAX_TICK);
+        let max_price_sqrt = calculate_price_sqrt(MAX_TICK).unwrap();
+        let min_price_sqrt = calculate_price_sqrt(-MAX_TICK).unwrap();
         let one_liquidity = Liquidity::from_integer(1);
         let max_liquidity = Liquidity::max_instance();
         let max_amount = TokenAmount::max_instance();
@@ -1271,7 +1274,7 @@ mod tests {
         let min_price = Price::new(1);
         let sample_liquidity = Liquidity::new(1);
         let min_overflow_token_amount = TokenAmount::new(340282366920939);
-        let max_price = calculate_price_sqrt(MAX_TICK);
+        let max_price = calculate_price_sqrt(MAX_TICK).unwrap();
         let one_liquidity: Liquidity = Liquidity::from_integer(1);
         let max_liquidity = Liquidity::max_instance();
         // max_liquidity
@@ -1450,10 +1453,10 @@ mod tests {
             assert!(result_up.is_some());
         }
 
-        let max_sqrt_price = calculate_price_sqrt(MAX_TICK);
-        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK);
-        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1);
-        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1);
+        let max_sqrt_price = calculate_price_sqrt(MAX_TICK).unwrap();
+        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK).unwrap();
+        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1).unwrap();
+        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1).unwrap();
 
         // DOMAIN:
         let max_liquidity = Liquidity::new(u128::MAX);
@@ -1613,8 +1616,8 @@ mod tests {
         }
 
         // DOMAIN
-        let max_sqrt_price = calculate_price_sqrt(MAX_TICK);
-        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK);
+        let max_sqrt_price = calculate_price_sqrt(MAX_TICK).unwrap();
+        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK).unwrap();
         let max_liquidity = Liquidity::new(u128::MAX);
         // maximize delta_price and liquidity
         {
@@ -1709,7 +1712,7 @@ mod tests {
         // DOMAIN:
         let max_liquidity = Liquidity::new(u128::MAX);
         let min_liquidity = Liquidity::new(1);
-        let max_price_sqrt = calculate_price_sqrt(MAX_TICK);
+        let max_price_sqrt = calculate_price_sqrt(MAX_TICK).unwrap();
         let max_amount = TokenAmount(u64::MAX);
         {
             let result = get_next_sqrt_price_x_up(max_price_sqrt, max_liquidity, max_amount, true)
@@ -1805,7 +1808,7 @@ mod tests {
     fn test_is_enough_amount_to_push_price() {
         // Validate traceable error
         let min_liquidity = Liquidity::new(1);
-        let max_price_sqrt = calculate_price_sqrt(MAX_TICK);
+        let max_price_sqrt = calculate_price_sqrt(MAX_TICK).unwrap();
         let min_fee = FixedPoint::from_integer(0);
         {
             let (_, cause, stack) = is_enough_amount_to_push_price(
@@ -1826,7 +1829,7 @@ mod tests {
 
         let (_, cause, _) = is_enough_amount_to_push_price(
             TokenAmount::new(1000),
-            calculate_price_sqrt(10),
+            calculate_price_sqrt(10).unwrap(),
             Liquidity::new(1),
             fee_over_one,
             true,
@@ -1841,9 +1844,9 @@ mod tests {
     #[test]
     fn test_price_limitation() {
         {
-            let global_max_price = calculate_price_sqrt(MAX_TICK);
+            let global_max_price = calculate_price_sqrt(MAX_TICK).unwrap();
             assert_eq!(global_max_price, Price::new(MAX_SQRT_PRICE)); // ceil(log2(this)) = 96
-            let global_min_price = calculate_price_sqrt(-MAX_TICK);
+            let global_min_price = calculate_price_sqrt(-MAX_TICK).unwrap();
             assert_eq!(global_min_price, Price::new(MIN_SQRT_PRICE)); // ceil(log2(this)) = 64
         }
         {
@@ -1851,7 +1854,7 @@ mod tests {
             let max_tick: i32 = get_max_tick(1).unwrap();
             assert_eq!(max_price, Price::new(9189293893553000000000000));
             assert_eq!(
-                calculate_price_sqrt(max_tick),
+                calculate_price_sqrt(max_tick).unwrap(),
                 Price::new(9189293893553000000000000)
             );
 
@@ -1859,7 +1862,7 @@ mod tests {
             let max_tick: i32 = get_max_tick(2).unwrap();
             assert_eq!(max_price, Price::new(84443122262186000000000000));
             assert_eq!(
-                calculate_price_sqrt(max_tick),
+                calculate_price_sqrt(max_tick).unwrap(),
                 Price::new(84443122262186000000000000)
             );
 
@@ -1867,7 +1870,7 @@ mod tests {
             let max_tick: i32 = get_max_tick(5).unwrap();
             assert_eq!(max_price, Price::new(65525554855399275000000000000));
             assert_eq!(
-                calculate_price_sqrt(max_tick),
+                calculate_price_sqrt(max_tick).unwrap(),
                 Price::new(65525554855399275000000000000)
             );
 
@@ -1875,7 +1878,7 @@ mod tests {
             let max_tick: i32 = get_max_tick(10).unwrap();
             assert_eq!(max_price, Price::new(65535383934512647000000000000));
             assert_eq!(
-                calculate_price_sqrt(max_tick),
+                calculate_price_sqrt(max_tick).unwrap(),
                 Price::new(65535383934512647000000000000)
             );
 
@@ -1883,7 +1886,7 @@ mod tests {
             let max_tick: i32 = get_max_tick(100).unwrap();
             assert_eq!(max_price, Price::new(65535383934512647000000000000));
             assert_eq!(
-                calculate_price_sqrt(max_tick),
+                calculate_price_sqrt(max_tick).unwrap(),
                 Price::new(65535383934512647000000000000)
             );
         }
@@ -1892,7 +1895,7 @@ mod tests {
             let min_tick: i32 = get_min_tick(1).unwrap();
             assert_eq!(min_price, Price::new(108822289458000000000000));
             assert_eq!(
-                calculate_price_sqrt(min_tick),
+                calculate_price_sqrt(min_tick).unwrap(),
                 Price::new(108822289458000000000000)
             );
 
@@ -1900,7 +1903,7 @@ mod tests {
             let min_tick: i32 = get_min_tick(2).unwrap();
             assert_eq!(min_price, Price::new(11842290682000000000000));
             assert_eq!(
-                calculate_price_sqrt(min_tick),
+                calculate_price_sqrt(min_tick).unwrap(),
                 Price::new(11842290682000000000000)
             );
 
@@ -1908,7 +1911,7 @@ mod tests {
             let min_tick: i32 = get_min_tick(5).unwrap();
             assert_eq!(min_price, Price::new(15261221000000000000));
             assert_eq!(
-                calculate_price_sqrt(min_tick),
+                calculate_price_sqrt(min_tick).unwrap(),
                 Price::new(15261221000000000000)
             );
 
@@ -1916,7 +1919,7 @@ mod tests {
             let min_tick: i32 = get_min_tick(10).unwrap();
             assert_eq!(min_price, Price::new(15258932000000000000));
             assert_eq!(
-                calculate_price_sqrt(min_tick),
+                calculate_price_sqrt(min_tick).unwrap(),
                 Price::new(15258932000000000000)
             );
 
@@ -1924,7 +1927,7 @@ mod tests {
             let min_tick: i32 = get_min_tick(100).unwrap();
             assert_eq!(min_price, Price::new(15258932000000000000));
             assert_eq!(
-                calculate_price_sqrt(min_tick),
+                calculate_price_sqrt(min_tick).unwrap(),
                 Price::new(15258932000000000000)
             );
 

@@ -43,38 +43,38 @@ fn tick_to_position(tick: i32, tick_spacing: u16) -> (usize, u8) {
 }
 
 // tick_spacing - spacing already scaled by tick_spacing
-pub fn get_search_limit(tick: i32, tick_spacing: u16, up: bool) -> i32 {
+pub fn get_search_limit(tick: i32, tick_spacing: u16, up: bool) -> Option<i32> {
     let index = tick / tick_spacing as i32;
 
     // limit unsclaed
     let limit = if up {
         // ticks are limited by amount of space in the bitmap...
-        let array_limit = TICK_LIMIT.checked_sub(1).unwrap();
+        let array_limit = TICK_LIMIT.checked_sub(1)?;
         // ...search range is limited to 256 at the time ...
-        let range_limit = index.checked_add(TICK_SEARCH_RANGE).unwrap();
+        let range_limit = index.checked_add(TICK_SEARCH_RANGE)?;
         // ...also ticks for prices over 2^64 aren't needed
-        let price_limit = MAX_TICK.checked_div(tick_spacing as i32).unwrap();
+        let price_limit = MAX_TICK.checked_div(tick_spacing as i32)?;
 
         array_limit.min(range_limit).min(price_limit)
     } else {
-        let array_limit = (-TICK_LIMIT).checked_add(1).unwrap();
-        let range_limit = index.checked_sub(TICK_SEARCH_RANGE).unwrap();
-        let price_limit = -MAX_TICK.checked_div(tick_spacing as i32).unwrap();
+        let array_limit = (-TICK_LIMIT).checked_add(1)?;
+        let range_limit = index.checked_sub(TICK_SEARCH_RANGE)?;
+        let price_limit = -MAX_TICK.checked_div(tick_spacing as i32)?;
 
         array_limit.max(range_limit).max(price_limit)
     };
 
     // scaled by tick_spacing
-    limit.checked_mul(tick_spacing as i32).unwrap()
+    limit.checked_mul(tick_spacing as i32)
 }
 
 impl Tickmap {
     pub fn next_initialized(&self, tick: i32, tick_spacing: u16) -> Option<i32> {
-        let limit = get_search_limit(tick, tick_spacing, true);
+        let limit = get_search_limit(tick, tick_spacing, true)?;
 
         // add 1 to not check current tick
         let (mut byte, mut bit) =
-            tick_to_position(tick.checked_add(tick_spacing as i32).unwrap(), tick_spacing);
+            tick_to_position(tick.checked_add(tick_spacing as i32)?, tick_spacing);
         let (limiting_byte, limiting_bit) = tick_to_position(limit, tick_spacing);
 
         while byte < limiting_byte || (byte == limiting_byte && bit <= limiting_bit) {
@@ -83,25 +83,21 @@ impl Tickmap {
 
             // go through all bits in byte until it is zero
             if shifted != 0 {
-                while shifted.checked_rem(2).unwrap() == 0 {
+                while shifted.checked_rem(2)? == 0 {
                     shifted >>= 1;
-                    bit = bit.checked_add(1).unwrap();
+                    bit = bit.checked_add(1)?;
                 }
 
                 return if byte < limiting_byte || (byte == limiting_byte && bit <= limiting_bit) {
                     let index: i32 = byte
-                        .checked_mul(8)
-                        .unwrap()
-                        .checked_add(bit.into())
-                        .unwrap()
+                        .checked_mul(8)?
+                        .checked_add(bit.into())?
                         .try_into()
-                        .unwrap();
+                        .ok()?;
                     Some(
                         index
-                            .checked_sub(TICK_LIMIT)
-                            .unwrap()
-                            .checked_mul(tick_spacing.try_into().unwrap())
-                            .unwrap(),
+                            .checked_sub(TICK_LIMIT)?
+                            .checked_mul(tick_spacing.try_into().ok()?)?,
                     )
                 } else {
                     None
@@ -123,40 +119,36 @@ impl Tickmap {
     // tick_spacing - spacing already scaled by tick_spacing
     pub fn prev_initialized(&self, tick: i32, tick_spacing: u16) -> Option<i32> {
         // don't subtract 1 to check the current tick
-        let limit = get_search_limit(tick, tick_spacing, false); // limit scaled by tick_spacing
+        let limit = get_search_limit(tick, tick_spacing, false)?; // limit scaled by tick_spacing
         let (mut byte, mut bit) = tick_to_position(tick as i32, tick_spacing);
         let (limiting_byte, limiting_bit) = tick_to_position(limit, tick_spacing);
 
         while byte > limiting_byte || (byte == limiting_byte && bit >= limiting_bit) {
             // always safe due to limitated domain of bit variable
-            let mut mask = 1u16.checked_shl(bit.try_into().unwrap()).unwrap(); // left = MSB direction (increase value)
+            let mut mask = 1u16.checked_shl(bit.try_into().ok()?)?; // left = MSB direction (increase value)
             let value = self.bitmap[byte] as u16;
 
             // enter if some of previous bits are initialized in current byte
-            if value.checked_rem(mask.checked_shl(1).unwrap()).unwrap() > 0 {
+            if value.checked_rem(mask.checked_shl(1)?)? > 0 {
                 // skip uninitalized ticks
                 while value & mask == 0 {
                     mask >>= 1;
-                    bit = bit.checked_sub(1).unwrap();
+                    bit = bit.checked_sub(1)?;
                 }
 
                 // return first initalized tick if limiit is not exceeded, otherswise return None
                 return if byte > limiting_byte || (byte == limiting_byte && bit >= limiting_bit) {
                     // no possibility to overflow
                     let index: i32 = byte
-                        .checked_mul(8)
-                        .unwrap()
-                        .checked_add(bit.into())
-                        .unwrap()
+                        .checked_mul(8)?
+                        .checked_add(bit.into())?
                         .try_into()
-                        .unwrap();
+                        .ok()?;
 
                     Some(
                         index
-                            .checked_sub(TICK_LIMIT)
-                            .unwrap()
-                            .checked_mul(tick_spacing.try_into().unwrap())
-                            .unwrap(),
+                            .checked_sub(TICK_LIMIT)?
+                            .checked_mul(tick_spacing.try_into().ok()?)?,
                     )
                 } else {
                     None

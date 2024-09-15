@@ -280,10 +280,10 @@ pub mod tests {
     #[test]
     fn test_big_div_values_to_token() {
         // base examples tested in up-level functions
-        let max_sqrt_price = calculate_price_sqrt(MAX_TICK);
-        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK);
-        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1);
-        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1);
+        let max_sqrt_price = calculate_price_sqrt(MAX_TICK).unwrap();
+        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK).unwrap();
+        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1).unwrap();
+        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1).unwrap();
 
         // DOMAIN:
         // max_nominator =             22300535562308408361215204585786568048575995442267771385000000000000 (< 2^224)
@@ -322,10 +322,10 @@ pub mod tests {
     #[test]
     fn test_big_div_values_to_token_up() {
         // base examples tested in up-level functions
-        let max_sqrt_price = calculate_price_sqrt(MAX_TICK);
-        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK);
-        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1);
-        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1);
+        let max_sqrt_price = calculate_price_sqrt(MAX_TICK).unwrap();
+        let min_sqrt_price = calculate_price_sqrt(-MAX_TICK).unwrap();
+        let almost_max_sqrt_price = calculate_price_sqrt(MAX_TICK - 1).unwrap();
+        let almost_min_sqrt_price = calculate_price_sqrt(-MAX_TICK + 1).unwrap();
 
         // DOMAIN:
         // max_nominator =             22300535562308408361215204585786568048575995442267771385000000000000 (< 2^224)
@@ -372,7 +372,7 @@ pub mod tests {
     fn test_price_overflow() {
         // max_sqrt_price
         {
-            let max_sqrt_price = calculate_price_sqrt(MAX_TICK);
+            let max_sqrt_price = calculate_price_sqrt(MAX_TICK).unwrap();
 
             let result = max_sqrt_price.big_mul_to_value(max_sqrt_price);
             let result_up = max_sqrt_price.big_mul_to_value_up(max_sqrt_price);
@@ -385,7 +385,7 @@ pub mod tests {
         }
         // min_sqrt_price
         {
-            let min_sqrt_price = calculate_price_sqrt(-MAX_TICK);
+            let min_sqrt_price = calculate_price_sqrt(-MAX_TICK).unwrap();
 
             let result = min_sqrt_price.big_mul_to_value(min_sqrt_price);
             let result_up = min_sqrt_price.big_mul_to_value_up(min_sqrt_price);
