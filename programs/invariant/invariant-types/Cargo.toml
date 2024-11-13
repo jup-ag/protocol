@@ -7,7 +7,7 @@ edition = "2018"
 
 
 [dependencies]
-anchor-lang = "0.29.0"
+anchor-lang = { workspace = true }
 borsh = { version = "0.10", features = ["const-generics"] }
 decimal = { path = "../decimal" }
 bytemuck = "1"
